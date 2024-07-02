@@ -21,7 +21,7 @@ tar_source(files = "r")
 # run targets -------------------------------------------------------------
 
 list(
-# File names ------------------------------------------------------------
+# file names ------------------------------------------------------------
 
   # barometric pressure comparison input datasets
   tar_target(rd_08, "data/rd_08_baro.rsk", format = "file"),
@@ -40,25 +40,25 @@ list(
   # well details data
   tar_target(well_details_file, "data/well_details.csv", format = "file"),
 
-# Read & generate data --------------------------------------------------
+# read & generate data --------------------------------------------------
 
-  # Read well data
+  # read well data
   tar_target(
     name = well_details,
     command = fread(well_details_file)),
-  # Read and process transducer data
+  # read and process transducer data
   tar_target(
     name = baro,
     command = rsk_baro(c(rd_08, rd_10, rd_130_d, rd_130_s))),
-  # Read and process transducer data
+  # read and process transducer data
   tar_target(
     name = wl,
     command = rsk_wl(c(rd_130_baro, c_3, rd_45b, rd_77, rd_121, rd_130))),
-  # Read and process transducer data
+  # read and process transducer data
   tar_target(
     name = ba_compare_time,
     command = baro_compare_time(baro[86400:(86400*8)], ba_knots_baro)),
-  # Generate synthetic Earth tides
+  # generate synthetic Earth tides
   # all together
   tar_target(
     name = et_all,
@@ -87,20 +87,20 @@ list(
     )),
 
 
-# Frequency domain barometric pressure comparison -------------------------
+# frequency domain barometric pressure comparison -------------------------
   tar_target(
     name = ba_compare_frequency,
     command = baro_compare_frequency(baro[86400:(86400*8)])),
 
 
-# Analysis of synthetic data ----------------------------------------------
+# analysis of synthetic data ----------------------------------------------
 
-  # Create synthetic kernels
+  # create synthetic kernels
   tar_target(
     name = kernels,
     command = synthetic_kernels(max_syn_lag)),
 
-  # Synthetic datasets
+  # synthetic datasets
   tar_target(
     name = ba_wl_syn,
     command = synthetic_data_wide(wl, kernels, start, end)),
@@ -108,21 +108,21 @@ list(
     name = tf_dt,
     command = synthetic_data_long(ba_wl_syn)),
 
-  # Calculate transfer functions
+  # calculate transfer functions
   tar_target(
     name = tf_syn,
     command = freq_response_by_group(tf_dt)),
-  # Calculate barometric efficiency
+  # calculate barometric efficiency
   tar_target(
     name = results_syn,
     command = be(ba_wl_syn, kernels)),
-  # Compare timings and accuracy
+  # compare timings and accuracy
   tar_target(
     name = results_method,
     command = run_method_comparison(ba_wl_syn, kernels$kern_comb)),
 
 
-# Analysis of field data --------------------------------------------------
+# analysis of field data --------------------------------------------------
   # barometric efficiency
   tar_target(
     name = static,
@@ -145,7 +145,7 @@ list(
                                    end,
                                    ba_knots,
                                    df)),
-  # Irregular spaced lag results
+  # irregular spaced lag results
   tar_target(
     name = rec_irr,
     command = regress_irr_rec(wl,
@@ -154,18 +154,18 @@ list(
                              end,
                              ba_lags_irr,
                              df)),
-  # Determine the time domain impulse response
+  # determine the time domain impulse response
   tar_target(
     name = response_dl,
     command = regress_dl_response(rec_dl)),
-  # Determine the time domain contribution for each component
+  # determine the time domain contribution for each component
   tar_target(
     name = predict_dl,
     command = regress_dl_predict(rec_dl)),
   tar_target(
     name = formula_dl,
     command = regress_dl_formula(rec_dl)),
-  # Transfer functions for different wells
+  # transfer functions for different wells
   tar_target(
     name = tf_c_3,
     command = transfer_function(wl, et_all, "c_3")),
@@ -189,7 +189,7 @@ list(
     command = residual_pgram(wl, et_all, predict_dl)),
 
 
-# Fit hydraulic model -----------------------------------------------------
+# fit hydraulic model -----------------------------------------------------
   # model fit
   # thickness, air_diffusivity, transmissivity, scale_1, scale_2
   tar_target(
@@ -197,7 +197,7 @@ list(
     command = fit_weeks_cbp(collapse::qDT(response_dl)[variable == "cumulative" & outcome == "rd_130"])),
 
 
-# Create figures ----------------------------------------------------------
+# create figures ----------------------------------------------------------
   tar_target(
     name = figure_02,
     command = plot_figure_02(results_syn, tf_syn, tf_dt, kernels),
@@ -241,7 +241,7 @@ list(
     format = "file"),
 
 
-# Generate Report ---------------------------------------------------------
+# generate report ---------------------------------------------------------
   tar_render(report,
              "brf_methods_joh_kennel_2024.Rmd")
 

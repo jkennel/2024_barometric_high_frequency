@@ -19,7 +19,7 @@ add_earthtide <- function(utc,
                        catalog = catalog,
                        wave_groups = wave_groups,
                        method = method,
-                       n_thread = 12)
+                       n_thread = 12) # you may want to adjust the number of threads for your computer
 
   return(et)
 

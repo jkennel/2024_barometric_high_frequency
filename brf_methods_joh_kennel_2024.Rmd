@@ -1,0 +1,479 @@
+---
+title: Characterizing water level responses to barometric pressure fluctuations from seconds to days
+journal: "Journal of Hydrology"
+author:
+  - name: Jonathan Kennel
+    affiliation: University of Guelph
+    email: jkennel@uoguelph.ca
+    corresponding: true
+  - name: Beth Parker
+    affiliation: University of Guelph
+    email: bparker@uoguelph.ca
+address:
+  - code: University of Guelph
+    address: University of Guelph, School of Engineering, 50 Stone Road East, Guelph, Ontario, N1G 2W1, Canada
+abstract: |
+  A regression deconvolution method using distributed lags for the efficient calculation of barometric/loading response functions in the presence of Earth tides and background trends was applied to water pressure measurements collected every second. This method was able to simultaneously deconvolve multiple stresses that can be used for both signal decomposition (removal of noise and isolation of signals) and the determination of impulse response functions that can be interpreted for hydraulic properties and subsurface characterization. We also demonstrate how the static barometric efficiency is a deficient parameter when applied to wells having delayed responses and needs to be applied with care. The distributed lag method combined with high frequency monitoring has implications for improved site characterization, determining the continuity of subsurface features, parameter estimation, understanding the degree of confinement, and signal decomposition. The methods for this paper can be found in the R *hydrorecipes* package.
+date: "`r Sys.Date()`"
+bibliography: natural.bib
+nocite: |
+  @usgsaerial
+linenumbers: true
+#numbersections: true
+preamble: |
+  \usepackage[nomarkers]{endfloat}
+  \usepackage{amsmath}
+  \linenumbers
+  \usepackage{setspace}
+  \usepackage[dvipsnames]{xcolor}
+  \doublespacing
+biblio-style: elsarticle-harv # author year style for natbib - use 'elsarticle-num' or 'elsarticle-num-names' for numbered scheme
+classoption: preprint, 3p, authoryear # remove authoryear is not using `elsarticle-harv`
+# Use a CSL with `citation_package = "default"`
+# csl: https://www.zotero.org/styles/elsevier-harvard
+output: 
+  rticles::elsevier_article:
+    keep_tex: true
+    citation_package: natbib
+---
+
+
+
+```{r setup, include=FALSE, warning=FALSE}
+
+knitr::opts_chunk$set(echo = FALSE, 
+                      out.width = '100%')
+options(xtable.comment = FALSE)
+
+static         <- tar_read(static)
+well_details   <- tar_read(well_details)
+results_syn    <- tar_read(results_syn)
+results_method <- tar_read(results_method)
+
+```
+
+
+
+\newpage
+
+# Introduction
+
+Water levels are constantly changing due a variety of stresses such as barometric pressure, Earth and ocean tides, surface water levels, precipitation, pumping and injection, loading and unloading, earthquakes to name a few. Not only do they respond to nearby stress changes but they can respond to changes originating thousands of miles away, which travel through different volumes of the subsurface. These water level fluctuations may be small (sub-millimeter) or large (meters) and be short (sub-second) or long-lived (days to years). Historical and present technical limitations lead to many of these changes going unnoticed or unrecognized due to inadequate monitoring frequency and insufficient equipment precision. As monitoring technology continues to improve, new analysis methods will be necessary to better interpret the multitude of water level responses. To evaluate what can be gained by using higher frequency measurements, water pressures were collected every second for multiple months at a fractured sandstone site. Using natural stress changes caused by barometric pressure, ambient water pressure responses are probed at a temporal scale not commonly examined. The barometric response is important for three primary reasons: barometric responses are present in water levels across the Earth (data is widely available); the response is related to subsurface parameters and character (information rich, i.e. hydrogeologic insights); and the removal of the barometric response can reveal previously obscured signals (improved data quality via noise reduction).  
+
+In this paper we define high frequency as a sampling interval that is less than one minute, which contrasts with common sampling intervals for ambient monitoring of 5 minutes or greater. The collection of high frequency data for long periods of time (months to years) requires equipment with suitable memory and power so that they that can operate for months at a time with minimal intervention. In addition, a clear motivation for collecting the high frequency data is necessary and we hope this paper encourages the collection of higher frequency data to improve subsurface characterization and parameterization. Historically the technological limitations and associated costs likely contributed to lower data collection frequencies, however, many of the technical limitations are being addressed with inexpensive memory and low power consumption devices. In addition, following data collection, new methods may be required to be able to evaluate the larger data sets. The goal of this paper is to introduce a time domain method that can be used to characterize water level responses and encourage others to collect high frequency data to advance decision-making and scientific understanding. First, methods are applied to a synthetic example with known properties, followed by examples with field data from a sandstone site. While this paper focuses on the barometric response, the methods can also be applied to other responses such as river stage, pumping, precipitation and others.
+
+The relationship between water levels (or water pressures) and barometric pressure is often conceptualized with a single value - the barometric efficiency [@Jacob1940; @Clark1967; @Davis1993; @Gonthier2007; @Smith2013; @Acworth2016; @turnadge2019comparing]. This relationship assumes a confined aquifer with an instantaneous response to changes in barometric loading. While many methods exist to estimate barometric efficiency, there is a key deficiency of single value (BE) methods that goes beyond their ability to handle noise (non-barometrically induced changes) in the data set; they assume a lag free or frequency independent response. To have an instantaneous response, the formation must respond (deform) instantly and the monitoring well must represent the formation pressure without any time lag. In practice, there is often a finite amount of time required for a signal to propagate through the subsurface and generate changes at the monitoring well [@hvorslev1951time]. These changes may occur rapidly (seconds) or slowly (days) depending on the source of the stress, the well design and geologic properties. Characterizing delayed or lagged responses can be difficult due to equipment limitations, the signal to noise ratio, interfering signals, and inadequate monitoring where the monitoring frequency is too low or the associated input signals (barometric pressure, precipitation, etc.) are collected too far away from the monitoring well.  
+
+The limitation of using a single barometric efficiency can be overcome by describing the barometric response with a time lag or frequency dependence. Barometric response functions were introduced to solve this problem and expand the notion of barometric efficiency to semi-confined and unconfined systems [@Rojstaczer1988; @Rasmussen1997; @Toll2007; @Rasmussen2007; @Odling2015]. These methods provide additional information over the traditional barometric efficiency that can provide diagnostic information about the subsurface. For example, @Rojstaczer1988 describes four imbalances that occur after a barometric pressure change for a semi-confined aquifer: (1) Vertical air flow in the vadose zone to the water table (vadose response); (2) vertical groundwater flow between the water table and the confining layer; (3) vertical groundwater flow between the aquifer and confining layer; and (4) Lateral groundwater flow between the formation and well (well-bore storage). While the pressure imbalances are established instantly, the lagged (or frequency dependent) response propagates through different volumes of the subsurface and occurs over multiple time scales. A single value is unable to describe these changes and the timing and magnitude of the response is related to subsurface and well properties. The first (1) imbalance will be related to the thickness and pneumatic diffusivity of the vadose zone [@Weeks1979; @Furbish1991; @Rojstaczer1988; @kuangreview2013; @yangaquifer2020], imbalances (2) and (3) are influenced by the vertical hydraulic diffusivity of the aquifer(s) and confining layer [@Butler2011; @Rojstaczer1988; @Ritziestimationfluidflow1991a], and imbalance (4) is related to the well geometry and formation transmissivity [@hvorslev1951time; @Rojstaczer1988] (Figure \ref{fig:paper-schematic}). In theory, the parameters associated with these responses should be obtainable by fitting the appropriate model to the barometric response function, but in practice this continues to be a difficult task. @Hussein2013 presented a series of theoretical barometric response functions in the frequency domain to demonstrate the sensitivity of the barometric response to different aquifer, confining layer, and vadose zone properties. These values are calculated for multiple scenarios and the responses vary over eight orders of magnitude in the frequency domain (10,000 to 0.0001 cycles per day), however, the typical empirically determined barometric response in the literature covers less than two orders of magnitude (15 minutes to one day time lag or 0.02 to 2 cycles per day). @Lai2013 presented coherent barometric responses up to 30 cycles per day and this frequency remains uncommon. Researchers have long known about the importance of frequency dependent responses but four primary reasons for the lack of field examples are: (1) technical limitatations of monitoring devices (2) water levels are rarely collected at high frequency; (3) the increased computational effort required for larger data sets; and (4) increased cost of monitoring.
+
+
+This paper introduces the R *hydrorecipes* package, which provides methods to better understand hydraulic responses [@kennel2022]. R is a programming language with statistical roots and a growing user community [@rcore2024].  The *hydrorecipes* package was heavily influenced by the *recipes* package, a popular framework for pre-processing and feature engineering [@kuhn2022]. The goal of the package is to provide tools that can be efficiently applied to moderately large data sets (millions of observations). For this study, the monitoring frequency for barometric and water pressure was selected to be every second to characterize a larger portion of the barometric response than previously explored. The *hydrorecipes* package handles increasing computational demands by modifying the lagging method of @Rasmussen1997 to use distributed lag models that can efficiently scale to much larger data sets. Distributed lag models are common in econometrics and are ideally suited to smoothly varying responses [@Almon1965; @Haugh1977; @Gasparrini2011]. The method is first tested on a synthetic data set and then applied to high frequency data collected every second from conventional monitoring wells at a mountainous, semi-arid, fractured sandstone site. With the higher frequency data, the ability to estimate subsurface properties is improved by increasing the ability to fit models to a larger range of time lags or frequencies and thus evaluate rapid responses that correspond to higher diffusivity systems. 
+
+
+```{r paper-schematic, out.width = "100%", fig.cap = "A barometric pressure change can induce flow that is governed by the diffusivity of different portions of the subsurface. The lag time or frequency dependence of the barometric response is related to different components of the system.  In some cases, the responses of multiple components of the system will occur contemporaneously and for others they can be separated into distinct regions of the response.  $D_{local}$ is the diffusivity of the well skin, $D_{aquifer}$ is the diffusivity of the aquifer, $D'_{conf}$ is the vertical diffusivity of the confining layer, $D'_{unconf}$ is the vertical diffusivity of the unconfined aquifer, $D_{air}$ is the pneumatic diffusivty of the vadose zone."}
+
+knitr::include_graphics('img/figure_01.png')
+
+```
+
+\clearpage
+
+
+# Background and Methods
+
+## Barometric efficiency
+
+Water level changes due to barometric pressure fluctuations are commonly described by a single value, the barometric (or loading) efficiency [@Jacob1940; @Clark1967; @Gonthier2007; @Smith2013; @Acworth2016; @Hendry2018; @rautechnical2020]. Single value methods work best on confined systems with minimal well-bore storage; however, in practice they are often applied to more complicated scenarios having lagged or frequency dependent responses. The barometric/loading efficiency can be estimated in multiple ways and is being used for the estimation of specific storage, therefore, representative and accurate values are necessary [@turnadge2019comparing; @mcmillansit2020; @rau2022situ]. A goal of many of these methods is to isolate the water level changes that result solely from barometric pressure changes. This may involve the inclusion of secondary variables like Earth tides or trend removal using first differences. The barometric efficiency (BE) relates a portion of a barometric pressure change to a water level change and can be described with the following equation:
+
+
+\begin{equation}
+BE =  -\frac{\Delta WL}{\Delta P_{baro}}
+\end{equation}
+
+
+\noindent where $\Delta WL$ is the change in water level, and $\Delta P_{baro}$ is a change in barometric pressure. The related property called the loading efficiency (LE) is defined as the change in absolute pressure as a fraction of the barometric pressure change and is related to the barometric efficiency by the equation:
+
+
+\begin{equation}
+LE =  1 - BE
+\end{equation}
+
+\noindent For confined aquifers the barometric efficiency can also be related to the specific storage ($S_s$) modified from @Jacob1940 equation 43:
+
+
+\begin{equation}
+S_s = \frac{\rho_{w} g \theta_{E} C_w}{BE}
+\end{equation}
+
+
+\noindent where $S_s$ is the specific storage, $\rho_{w}$ is the density of water, $\theta_{E}$ is the effective porosity of the formation, and $C_{w}$ is the compressibility of water. The density of water and the compressibility of water are often assumed, leaving the effective porosity and barometric efficiency to be estimated. 
+
+## Barometric Response Functions
+
+While these definitions may work for the ideal confined well with minimal well-bore storage, many wells in complex geologic environments do not behave in an ideal manner. In these cases, a single value is limited, does not provide the context necessary for interpretation, and can be misleading. To interpret results a more complete analysis of the time or frequency dependent response is necessary. One method to examine the time dependent response was introduced by @Munk1966 and was later applied to barometric pressure responses in groundwater [@Weeks1979; @Furbish1991; @Rasmussen1997; @Spane2002; @Butler2011]. This method calculates an impulse response using regression deconvolution and has been implemented in the freely available BETCO, KGS programs, and the https://groundwater.app which use equally spaced (regular) lags [@Toll2007; @Bohling2011]. The equation for regularly spaced lags from @Rasmussen1997 can be written as:
+
+
+\begin{equation}
+  P_{wl-b}(t) = \sum_{i=0}^{n} \beta_i P_b(t-i)
+\end{equation}
+
+
+\noindent where $P_{wl-b}$ is the component of water pressure due to barometric pressure, $P_{b}$ is the barometric pressure, $n$ is the maximum lag of the model, $i$ is the time lag, and $t$ is the time and $\beta_{i}$ are the regression coefficients to be determined. To minimize the effect of background trends and noise in the data, this formula is often written in terms of first differences:
+
+
+\begin{equation}
+  \Delta P_{wl-b}(t) = \sum_{i=0}^{n} \beta_i \Delta P_b(t-i)
+\end{equation}
+
+
+\noindent where $\Delta P_{wl-b}$ is the change in water pressure due to barometric pressure, $\Delta P_{b}$ is the change in barometric pressure occurring over some time period, typically the monitoring frequency but it could also be an integer multiple of the monitoring frequency.
+
+While these methods work well with data sets with tens to hundreds of lag terms ($\beta_i$) and thousands of observations, they can suffer from multicollinearity and become computationally inefficient for thousands of lags and millions of observations which is the case for high frequency data. Multicollinearity arises when regressors are highly correlated and lagged regressors will likely be correlated particularly when sampling frequency is high. In many instances the the effect of multicollinearity can be safely ignored, but it results in elevated standard errors for the coefficients. Two alternative methods for doing regression deconvolution that can scale to larger data sets and minimize multicollinearity are proposed. The first method uses the non-difference version of the regression deconvolution equation but determines $\beta_{i}$ at irregularly spaced lags:
+
+
+\begin{equation}
+  P_{wl-b}(t) = \sum_{k=1}^{m} \beta_{i(k)} P_b(t-i(k))
+\end{equation}
+
+\noindent where $m$ is number of lagged terms in the model, and $k$ is the lag term number. The implementation of the method should have many lag terms where the response is expected to change most rapidly (typically early lag times) and fewer lag terms when the response is slowly varying (late lag times) and in practice logarithmically spaced lags are often suitable. In some ways this could be thought of as a manual form of lasso regression (L2 penalty) where terms that do not provide much additional information are manually zeroed out (excluded from the model) [@tibshiraniregression1996]. The number of regressors can often be decreased from many thousands to hundreds but the model may still suffer from multicollinearity and not be applicable to data sets with millions of observations. Distributed lag models provide additional efficiency for these larger data sets [@Almon1965; @Haugh1977; @Gasparrini2011]:
+
+
+\begin{equation}
+  P_{wl-b} = \sum_{j=1}^{m} \beta_j s_j(x)
+\end{equation}
+
+\noindent where $j$ is the basis function index, $s_j$ is the $j^{th}$ basis variable determined by convolving $P_b$ and the $j^{th}$ basis function. The basis functions can be determined in a variety of ways but B-splines are popular, quick to generate, piecewise continuous, and the derivaties are commonly continuous and therefore suitable for modeling a variety of responses [@splines2-paper; @splines2-package]. The convolution can be done in the time or frequency domain and for regularly spaced data the frequency domain convolution will typically be more computationally efficient. To further elaborate on this method, suppose we want to model 30 days of data collected every second (n = 86400 * 30 = 2592000 measurements) with up to 4 days of lags (m = 86400 * 4 + 1 = 345601 lags). The standard approach would require a regressor term for each one of these lags and the generated matrix would end up being (n x m = 2592000 x 345601). The distributed lag method aims to reduce this and starts by selecting a basis function generator (e.g. B-splines) and the number or locations of knots (e.g. at 0, 1, 10, 100, 1000, 10000, 100000, 345600 lag time and j = 8 for this set), which are the points where the piecewise polynomial functions meet and curvature can vary. By spacing knots closer together at early lag times, we attempt to better capture the response where it is changing most rapidly. An $m$ (number of lags) x $j$ (number of basis functions) matrix is then created by specifying the lag vector (0 to 345600), the knots, and other arguments to the B-spline generator (e.g. intercept, degree). Each column of this matrix is then convolved with the 30 days of barometric pressure data and results in a $n$ x $j$ (2592000 x 8) matrix of regressors. So instead of having a 2592000 x 345601 matrix, we end up with a 2592000 x 8 matrix. This technique decreases the number of regressors (or columns of the regression matrix) by assuming the barometric response function is smoothly variable in time so a set of curves can describe the response. Knots define regions of the response where polynomial parameters in the regression vary (i.e. changes in response curvature). For barometric response functions we suggest logarithmic spacing for the lags and knots in the irregular spaced and distributed lag models respectively. Distributed lag models further decrease the required number of regressors and are less influenced by multicollinearity. 
+
+
+## Building and fitting the regression deconvolution model
+
+In the section above we describe how the regression terms are created for the different lagging methods. While barometric pressure responses are commonly found in water pressure or water level data sets, they are not the only stressor of importance.  Therefore, the regression model needs to include multiple stresses and terms in addition to the barometric response. To do this, a matrix of regressors is generated which is based on the data sets that contribute to water pressure responses. For example, this may include Earth tides, pumping, precipitation, ocean levels, or other signals. In some cases the appropriate auxiliary data is absent and a regression spline can be helpful to capture background trends not related to barometric pressure or the desired signals to analyze. For example if we have a water pressure dataset that contains a barometric response and a background trend the regression equation in matrix form could be written as:  
+
+
+
+\begin{equation}
+{\begin{bmatrix}
+P_{1}^{wl} \\
+P_{2}^{wl} \\
+\vdots \\
+P_{n}^{wl}
+\end{bmatrix}_{n \times 1}}
+\text{=}
+{\begin{bmatrix}
+s_{1}^{1} &s_1^{2} &\dots &s_1^{j} &t_1^{1} &t_1^{2} &\dots  &t_1^{k} \\
+s_{2}^{1} &s_2^{2} &\dots &s_2^{j} &t_2^{1} &t_2^{2} &\dots  &t_2^{k} \\
+\vdots &\vdots &\vdots &\vdots &\vdots &\vdots &\ddots &\vdots \\
+s_{n}^{1} &s_n^{2} &\dots &s_n^{j} &t_n^{1} &t_n^{2} &\dots &t_n^{k}
+\end{bmatrix}_{n \times m}}
+{\begin{bmatrix}
+\beta_{s^1} \\
+\beta_{s^2} \\
+\vdots \\
+\beta_{s^j} \\
+\beta_{t^1} \\
+\beta_{t^2} \\
+\vdots \\
+\beta_{t^k}
+\end{bmatrix}_{m \times 1}}
+\end{equation}
+
+
+
+
+where $P_{1:n}^{wl}$ are the water pressure observations, $s_{1:n}^{1:j}$ are the distributed lag terms for barometric pressure, $t_{1:n}^{1:k}$ are the regression spline terms for the background trend, and $\beta_{s^{1:j}}$ and $\beta_{t^{1:k}}$ are the coefficients to be determined by the regression for the barometric pressure and background trend respectively. Additional regressors, such as Earth tides can be added to the model in similar manner and allow all coefficients to be solved simultaneously.
+
+In this format, the equation can be solved in a number of ways, with least squares regression being one of the most common. However, as in the case with the traditional regularly spaced lagged models of @Rasmussen2007, it is also possible to use generalized linear models with different regularization constraints that can reduce the problems of overfitting. Once the regression equation is solved and the coefficients determined, these coefficients can be multiplied by the regressor columns to determine the contribution for each regressor group (i.e. barometric pressure and background trend components) or used for prediction. Similar to regression with regularly spaced lags, the standard error of the coefficients and coefficient confidence intervals can be determined and used to evaluate the precision of each individual coefficient in the model and whether each coefficient is statistically significant.
+
+## Synthetic responses
+
+Determining the barometric response from field data is error prone due to the presence of confounding signals, non-linearities, violation of model assumptions, noise, and error in collected data sets. Many studies have estimated barometric responses using field data where the true solution is unknown; however, method comparison using synthetic data with a known solution can provide increased clarity.
+
+Synthetic water pressures were generated by convolving loading response kernels (i.e. the response as a function of time or frequency) with field measured barometric pressure data (Figure \ref{fig:paper-syn-noise-free-function}). Four scenarios were tested: (1) Confined response; (2) Vadose response; (3) Well-bore storage response; and (4) a combined vadose and well-bore storage model. The confined response kernel is a single loading value equal to 0.38 and leads to a water level that is a scaling of the barometric pressure. The vadose kernel used in the vadose response was calculated using the 1-D air flow model of @Weeks1979 considering a unit change in barometric pressure calculated for multiple times:
+
+$$\Delta P_{wl}(t) = 1 - \frac{4}{\pi} \sum_{m=1, 3, 5, ...}^{\infty} \left[(-1)^{(m-1)/2}  \frac{1}{m} \exp(-m^2 \pi^2 D_{air} t / 4L^2)\right]$$
+
+\noindent where $\Delta P_{wl}(t)$ is change in water pressure at time (t), L is the thickness of the vadose zone, D~air~ is the pneumatic diffusivity of the vadose zone. The infinite sum is truncated when the absolute value of an additional term is less than $1\times 10^{-16}$ of the starting value. The response function begins at zero and increases to the loading efficiency set to unity and having the following vadose zone parameters: a pneumatic diffusivity of 0.1 m^2^/s and vadose zone thickness equal to 40 m. The late time values do not represent formation compressibility but the unattenuated air pressure transmission through the vadose zone. 
+
+The well-bore storage kernel was calculated by numerically inverting the Laplace solution of @cooper1967response:
+
+$$\Delta P_{wl}(t) = \frac{r_s S K_0(r_w q) }{T q [r_s q K_0(r_s q) + 2 \alpha K_0(r_s q) ]} $$
+
+\noindent where
+
+$$q = \sqrt{pS/T}$$
+
+\noindent and
+
+$$\alpha = r_s^2 S / r_w^2$$
+
+\noindent where r~s~ and r~w~ are the screen and well radii, S is the storativity, T is the transmissivity, K~0~ is the modified Bessel function of the second kind and order 0, and p is the Laplace transform variable. The following well and aquifer parameters are used in the @cooper1967response model to generate the response kernel: radius of the well and screen equal to 0.10 m, aquifer storativity equal to $1 \times 10^{-5}$ m/m, transmissivity equal to $5 \times 10^{-4}$ m^2^/s.
+
+The combined response kernel contains the vadose air flow and the well-bore storage models and is stylistically similar to response functions calculated for field data with both short (seconds to minutes) and long (hours to days) duration components. The synthetic water pressures and the associated response functions in the time and frequency domains are presented in Figure \ref{fig:paper-syn-noise-free-function}.
+
+```{r paper-syn-noise-free-function, out.width = "100%", fig.cap = "Field observed barometric pressure data was convolved with the response functions to generate synthetic water pressures to generate synthetic loading response functions.  The synthetic water pressures resulting from the convolution of barometric pressure and the response kernels are shown on the left.  Response functions (kernels) with the following parameters were applied to the barometric pressure data: Confined (LE = 0.38); Vadose (pneumatic diffusivity = 0.1  m\\textsuperscript{2}/s and vadose thickness = 40 m); Storage (transmissivity = $5 \\times 10^{-4}$ m\\textsuperscript{2}/s and well diameter = 0.1 m).  The frequency and time domain responses show similarities, with the early time response corresponding to high frequencies, and the late time response corresponding to low frequencies. Results from the least squares, Clark's, and Acworth methods using the synthetic water pressures and input barometric pressure are presented on the response figures."}
+
+knitr::include_graphics('img/figure_02.pdf')
+
+```
+
+\clearpage
+
+## Field Application
+
+Barometric pressure and well water pressures were collected from a fractured rock study site located near Simi, California with monitoring wells completed in the Upper Cretaceous Chatsworth formation consisting of a turbidite sequence of sandstones and interbedded siltstones and shales [@colburn1981chatsworth; @link1984slope; @cilona2016structural]. During the analysis period between `r format(start, '%Y-%m-%d')` and `r format(end, '%Y-%m-%d')`, barometric loading, Earth tides, earthquakes, and a recession following precipitation were the dominant signals present in water levels. The monitoring wells were open to the atmosphere and instrumented with a RBRsoloD pressure transducer (non-vented) reporting a sub-millimeter precision (0.0002 decibar which is \~0.0002 meter freshwater) (<https://rbr-global.com/products/compact-loggers/rbrsolo-d>). All pressures in decibar were converted to an equivalent pressure head using `r round(1.0199773339984, 3)` meter freshwater per decibar. Transducers were set to record pressure every second and typically placed ten meters below the well water level. Table \ref{tab:paper-well-details} presents the well construction details for the monitoring wells in this paper. Barometric pressure was measured in RD-130 using a transducer located approximately five meters below top of casing (above the well water level) to avoid large fluctuations in temperature. This well also contained a pressure transducer in the water column and was used to evaluate the distributed lag model and calculate transmissivity and vadose zone pneumatic diffusivity. Responses from two well pairs (C-03, RD-45B and RD-77, RD-121) each separated by approximately one hundred meters are compared to examine spatial variability and similarity of the barometric response (Figure \ref{fig:site-aerial-barometric}).
+
+```{r well-table, results = 'asis'}
+
+res <- tbl_well_details(well_details)
+
+print(res,
+      size = '\\tiny',
+      sanitize.text.function = function(x) x,
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      comment = FALSE,
+      caption.placement = "top")
+
+```
+
+
+```{r site-aerial-barometric, out.width = "100%", fig.cap = "Locations of the barometric pressure sensor and well pairs for the field comparison. RD-130 contains pressure transducers in the air column and submerged in the water column.  The well pairs (C-03 and RD-45B, RD-77 and RD-121) were selected to highlight similarities and differences of the barometric response. Barometric pressure from RD-130 is used for all the water pressure barometric response functions. Aerial imagery courtesy of the U.S. Geological Survey Earth Explorer (Digital Mapping Inc., 2008)."}
+
+knitr::include_graphics("img/figure_03.png")
+
+```
+
+
+### Barometric Pressure
+
+Barometric pressure is often assumed to be spatially constant at the field site scale. To assess this assumption, two weeks of barometric pressure data from four sensors located in three wells are compared by calculating the time domain response functions. Two transducers were placed in the air column of RD-130 at depths of ~5 m bgs (shallow), and 35 m bgs (deep), and the other transducers were located in the air columns of wells RD-08 (~5 m bgs) and RD-10 (~5 m bgs) which are separated from RD-130 by 3000 m and 700 m respectively.
+
+### Data Processing
+
+A `r as.character(round(end - start))` day period between `r format(start, format = '%Y-%m-%d')` and `r format(end, format = '%Y-%m-%d')` was chosen for analysis as precipitation events, sampling, and earthquakes responses (based on United States Geological (USGS) Earthquakes Hazards Program catalog [@usgs2019]) were expected to be minimal during that time period (Figure \ref{fig:paper-field-raw}). The selected period minimized the presence of water level perturbations but is long enough to separate the primary Earth tide components. For this study we focus on pressure changes, and the mean is removed from each data set to improve the visual comparison of values. No other data processing was performed before the application of the regression models.
+
+### Response Calculation
+
+The following methods were applied to calculate the static loading efficiency for the synthetic data sets: (1) Ordinary least squares (lag free model of barometric and water pressure); (2) @Clark1967 method using differences calculated between observations spaced 1 hour and 1 day apart; (3) and the @Acworth2016 method with zero Earth tide component (amplitude ratio for 2 cycles per day). To demonstrate the computational efficiency and accuracy of the distributed lag method relative to regular and irregular spaced regression deconvolution models, we tested the three techniques on a 2.5 day noise free synthetic data set that combined vadose and well-bore storage models (Figure \ref{fig:paper-syn-noise-free-function}).
+
+The distributed lag and static loading efficiency methods are applied to the field data from RD-130 (Figure \ref{fig:paper-field-raw}). Prior to the static loading efficiency calculations, the barometric and water pressures were linearly detrended. The @Acworth2016 method included the Earth tide component determined using the *earthtide* package which is an R port of Eterna 3.4 [@kennelearthtide2019; @Wenzel1998]. For the time domain distributed lag model, Earth tides were included as wave groups including satellite tidal constituents and not single frequencies (harmonic least squares) [@foremanharmonic1989]. For the frequency domain response function the complete @Hartmann1995 catalog was used to generate the volumetric strain due to Earth tides (Figure \ref{fig:paper-field-raw}). All examples are presented in terms of loading responses, i.e., absolute pressure heads. The response function methods are also calculated with the following levels of subsetting to explore how downsampling can affect the results: 60, 900, 3600, 7200 seconds. Following the application to RD-130 we apply the distributed lag model to two unconfined wells (RD-77, RD-121) and two semi-confined wells (C-03, RD-45B) (Figure \ref{fig:site-aerial-barometric}).
+
+
+Four regressor groups were simultaneously fit to the data in the distributed lag model: global intercept, barometric/loading response, Earth tide response, and the background trend. The global intercept accounts for the different mean values between the water level and barometric measurements. The barometric/loading response is calculated using the distributed lag model presented above. Earth tides (volumetric strain) are calculated in the regression model using harmonic analysis of wave groups simulated with the *R* *earthtide* package [@kennelearthtide2019] and compared to theoretical equilibrium amplitude ratios [@Hartmann1995]. The close coupling of the *hydrorecipes* and *earthtide* packages simplifies the method to obtain amplitude and phase information from water level data sets at multiple frequencies.  This is an extension of the @Rasmussen2007 method to use wave groups instead of specified frequencies which allows for the inclusion constituents with nearby frequencies (e.g. $K_{1}$, $P_{1}$ and $K_{2}$, $S_{2}$) in the regression as is commonly done in oceanography [@Tamura2007; @Foreman2009; @Wenzel1998]. The number of wave groups is typically chosen based on the equipment precision and the time span of the input data sets that is directly related to resolving different frequency components [@Tamura2007; @Foreman2009]. The trend is calculated using natural cubic splines with `r as.integer(df)` degrees of freedom. Barometric pressure, water pressure, and synthetic Earth tides are presented in Figure \ref{fig:paper-field-raw}.
+
+
+```{r paper-field-raw, out.width = "100%", fig.cap = "Time and frequency domain representations of the barometric and detrended water pressure for the field evaluation of well RD-130. There are a few salient points about the frequency domain representation.  First, the amplitude spectra for barometric pressure is larger than the respective values for water pressure.  The main exception to this is at the $M_{2}$ frequency where the water level contains a measureable but small Earth tide signal. Second, the ratio of amplitudes (water/barometric) varies as a function of frequency and shows a steady decline with increasing frequency. In the absence of other signals, the ratio of the amplitude of the water pressure to the barometric pressure can give an idea of the frequency dependent loading efficiency."}
+
+knitr::include_graphics("img/figure_04.pdf")
+
+```
+
+
+#### Parameter estimation
+
+Parameters were estimated by fitting a combined vadose zone [@Weeks1979] and well-bore storage model [@cooper1967response] to the distributed lag response in RD-130. The model was scaled using the loading efficiency and an offset term to account for attenuation in the vadose zone. The storativity of the aquifer was fixed at $5.0 \times 10^{-6}$ m/m and the model fit the following: the vadose zone thickness, the air diffusivity of the vadose zone, the transmissivity of the aquifer, the loading efficiency, and the attenuation term. The parameters were fit using non-linear least squares with the Gauss-Newton algorithm [@hastie2017statistical]. The first thirty seconds of the response were excluded in the model fit as it is not likely representative of the formation response (low signal to noise).
+
+
+
+# Results
+
+## Static response for synthetic data
+
+Table \ref{tab:paper-syn-static-comparison} and Figure \ref{fig:paper-syn-noise-free-function} compare the results of the static methods applied to the synthetic data representing confined, unconfined and well-bore storage scenarios. For the confined example with no well-bore storage, all methods successfully reproduce the loading efficiency value; however, for well-aquifer combinations with lagged or frequency dependent responses as presented in Figure \ref{fig:paper-syn-noise-free-function}, the estimated barometric or loading efficiency requires additional context to interpret. The response time of a system is often not known a priori, and a single value provides minimal context about the time dependent nature of a response. It is important to note that these are based on noise free data with no external signals and highlights a key deficiency of single valued methods when applied outside their intended use. This is particularly evident in methods that rely on calculating differences between measurements such as Clark's method or have a frequency dependence such as the Acworth method which is typically focused on 1 or 2 (diurnal and semi-diurnal) cycles per day. The performance of a method is linked to the underground and monitoring setup and we have applied these methods outside of their intended use, but unfortunately this is commonly done in practice, and a single value provides limited information to assess the applicability of the method.
+
+```{r paper-syn-static-comparison, results = 'asis', echo = FALSE}
+
+res <- collapse::qDT(lapply(results_syn, function(x) round(Mod(x$resp$value)[1:4], 2)))
+setnames(res, c('Confined (0.38)', 'Storage (0.0)', 'Vadose (1.0)', 'Combined (1.0)'))
+res <- cbind(data.table(Method = c('Simplified Acworth',
+                                   'Least Squares',
+                                   'Clark (1 hr)',
+                                   'Clark (1 day)')), res)
+
+res <- xtable(res, caption="\\label{tab:paper-syn-static-comparison} Estimates of loading efficiency using different static methods on noise free synthetic data.  The expected value is presented in the column headings in parentheses.  Clark's method was tested using two different sampling frequencies.")
+align(res) <- c('l','l','r','r','r','r')
+
+print(res,
+      size = '\\small',
+      sanitize.text.function = function(x) x,
+      math.style.exponents = TRUE,
+      include.rownames = FALSE,
+      comment = FALSE,
+      caption.placement = "top")
+
+```
+
+
+## Time Domain Methods on Synthetic Data Set
+
+Using the combined well-bore storage and vadose zone synthetic response, regular, irregular and distributed lag models were compared. The computational requirements and model fit to the known solution are presented in Table \ref{tab:paper-syn-method-comparison}. All methods used the base R *lm* function to solve the multiple linear regression problem in R [@rcore2024], however, alternative methods can be used to solve the system of equations. The regular lag model was calculated by decimating the full 1 second data set into 15 second, 10 minute, and 1 hour subsets. The regular lag model quickly reached computational limits both in execution time and memory even when applied to a short time period (~1.5 days). One day is lost from the original 2.5 days because the maximum time lag used was one day. Calculating the response function for the full 1 second data set either requires changing the method, the solver, or having a powerful computer and patience. For the irregular lag model, the full 1 second data set could be used, and the number of logarithmically spaced lags was varied between 20 and 400 terms.  The one hundred term model visually matches the synthetic response. For data sets of (millions of observations) the method may be hardware limited due to the large number of terms and observations. The distributed lag model with the full 1 second data set used 15 to 25 logarithmically spaced knots. This method outperformed the regular and irregular lag methods in computation time, memory consumption and accuracy. If the input (barometric pressure) is measured at a higher rate than the output (water pressure) it is possible to generate the lagged regressors using the higher frequency inputs at each output time. This approach can also be accomplished by subsetting the output data set during the lagging process to further reduce the size of the regression model while still resolving the early time response. Generally, we suggest collecting the inputs and outputs at the same frequency, however, collecting the inputs (precipitation, surface water levels, pumping rates, barometric pressure, etc.) at a higher frequency than water pressure can be an efficient use of time and computational resources. 
+
+
+```{r paper-syn-method-comparison, results = 'asis', echo = FALSE}
+
+  large <- function(x){
+    x[1] <- ' '
+    paste0('{\\bfseries ', x, '}')
+  }
+
+  large2 <- function(x){
+    paste0('{\\bfseries ', x, '}')
+  }
+
+  small <- function(x){
+    paste0('{\\small{ ', x, '}}')
+  }
+
+    addtorow <- list()
+  addtorow$pos <- list(0,0, 3,3, 6,6)
+  addtorow$command <- c(
+    '\\multicolumn{6}{l}{} & \\boldmath$10^{-8}$ to \\boldmath$10^{-2}$  & \\textbf{\\textcolor[RGB]{130,130,130}{True} | Fit} \\\\',
+    '\\hline  \\multicolumn{4}{l}{\\emph{Regular lags}} \\\\',
+    '',
+    '\\hline  \\multicolumn{4}{l}{\\emph{Irregular lags}} \\\\',
+    '',
+    '\\hline  \\multicolumn{4}{l}{\\emph{Distributed lags}}  \\\\ '
+  )
+
+  
+res <- tbl_syn_method_comparison(results_method)
+
+  print(res,
+        include.rownames = FALSE,
+        # booktabs = TRUE,
+        sanitize.text.function = function(x) x,
+        sanitize.colnames.function  = large2,
+        add.to.row = addtorow,
+        hline.after = c(-1, 0, 3, 6, 9),
+        size = '\\small',
+        # latex.environments = "widestuff",
+        math.style.exponents = TRUE,
+        floating = TRUE,
+        comment = FALSE,
+        caption.placement = "top")
+
+```
+
+
+## Field application
+
+### Spatially variable barometric pressure
+
+Understanding the barometric pressure input is necessary for the interpretation of water level responses. The distributed lag response between barometric pressure measurements at different locations is presented in Figure \ref{fig:paper-barometric-raw}. The results suggest that barometric pressure should be monitored as close to the monitoring well as possible if high frequency monitoring is being used. At this site, the precision of the transducer and the spatially variable barometric pressure affects the early time (up to a few minutes) response, which may manifest as an artificial time lag or a decrease in gain or phase shift for frequency responses (Figure: \ref{fig:paper-barometric-raw}). For the two transducers deployed in the same air column of RD-130 the cumulative response is greater than 90% of the impulse after ten seconds. However, for the locations 700 m (RD-10) and 3000 m (RD-08) away from RD-130, the spatial variability of barometric pressure manifests as a delayed response in the time domain, and a decrease in coherence in the frequency domain at around 100 cycles per day. These differences may be due to both the deployment method in the borehole, differing borehole completions, transducer manufacturing variability (clock drift, sensor sensitivity), the spatial variability of barometric pressure and potentially other factors. At this field site the barometric pressure is temporally variable due to seasonal winds and surface heating that may differentially affect the monitoring locations on site.
+
+```{r paper-barometric-raw, out.width = "100%", fig.cap = "Comparison of barometric responses from different locations on site. In the time domain a constant response of 1.0 would suggest the same barometric signal at different locations. Lateral and vertical variability of barometric pressure results in deviations from the ideal scenario. The high frequency measurements allow for the spatial variability of barometric pressure to be quantified and demonstrates early time variability.  The two transducers in the air column of RD-130 show a cumulative response that rapidly approaches 1.0 and are coherent to greater than 1000 cycles per day. At early times the spatial variability of air pressure caused by both local well completions and barometric pressure differences may limit the usefulness of results. In the frequency domain plot, the coherence drops off for transducers separated by lateral and vertical distances. The coherence (a measure of similarity) between the submerged transducer (RD-130 Water) and the transducer in the air column (RD-130 Shallow) is also presented to highlight the extended analysis range that is possible."}
+
+knitr::include_graphics('img/figure_05.pdf')
+
+```
+
+### Barometric responses (RD-130)
+
+In contrast to the noise free synthetic data sets, field data sets are inherently noisy. To mitigate noise from external signals the analysis time period was selected so that pumping, precipitation and earthquakes effects were minimal. The predominant signals in the water pressure data result from barometric pressure changes (distributed lag), Earth tides (harmonic wave groups) and declining water levels following antecedent precipitation (natural cubic spline).  All these signals were included in the loading response function regression model. Loading response functions due to barometric pressure are presented in Figure \ref{fig:paper-field-distributed-lag}. There are three regions defined by the responses: low signal to noise; well-bore storage; and vadose air flow (Figure \ref{fig:paper-field-distributed-lag}). The duration of these regions are dependent on the monitoring well design, monitoring equipment, and subsurface properties. For this data set the first 10 seconds of lag time of the response is characterized by low signal to noise and is due to a variety of factors, including, the transducer precision, temporal drift of transducers, borehole air flow, time required for aquifer deformation, and potentially non-linearity of the response due to changing borehole and formation conditions. The monitoring frequency has a direct impact on the resulting response functions and for this well a monitoring frequency of 60 seconds is too coarse to estimate the well-bore storage response that is related to the formation transmissivity and well geometry (Figure \ref{fig:paper-field-distributed-lag}). In addition, the vadose response, used to estimate the pneumatic diffusivity of the vadose zone, is not clearly resolved with a monitoring frequency greater than 900 seconds.  The static loading efficiency values presented in Figure \ref{fig:paper-field-distributed-lag} are `r round(static$clark_hr, 2)` (Clark 1 hour), `r round(static$acworth, 2)` (Acworth 2 cpd), `r round(static$clark_day, 2)` (Clark 1 day) and `r round(static$least_squares, 2)` (least squares). We present this not to advocate one method over another or to suggest the values are in error, but to highlight the importance of context when interpreting a single valued response. The appropriate context to understand these differences is available via the response functions.  
+
+```{r paper-field-distributed-lag, out.width = '100%', fig.cap = "Cumulative loading response for RD-130 determined using the multiple linear regression model. There are three main regions of response for this unconfined well.  The first ten seconds of lag corresponds to a low signal to noise response.  This portion of the data likely does not represent the well-formation response.  The next portion of the response corresponds to well-bore storage and lasts until around 300 seconds, and the final portion of the response corresponds to vadose air flow."}
+
+knitr::include_graphics('img/figure_06.pdf')
+
+```
+
+Four visual checks were made to evaluate the quality of the barometric/loading response functions using the distributed lag method (Figure \ref{fig:paper-field-distributed-lag}). First, it is assumed that the barometric/loading response function should be smoothly varying and jagged or large oscillations in the response suggest the presence of unaccounted for noise or trends in the data, potential error in the analysis, or a more complex barometric/loading response than commonly predicted. Second, the frequency response function method and the distributed lag methods should give similar results. Third, Earth tide amplitude ratios determined using harmonic analysis should be similar to theoretical amplitude ratios. Finally, residuals should have a random pattern centered on zero and should not be much larger than transducer precision. A closer examination of items 3 and 4 is presented below.
+
+
+### Signal decomposition
+
+Figure \ref{fig:paper-field-distributed-lag-decomposition} presents the input data sets and the signal decomposition obtained from the distributed lag model (barometric pressure component, Earth tide component, and spline component). Absolute residuals from the model fit are generally near the transducer resolution of ~0.02 cm water. Remaining structure (time periods of large residuals or biased positive/negative) in the residuals is likely the result of seismicity, temporal offsets between transducers (clock drift), air flow between vadose zone and borehole, and other stresses or physical changes not accounted for in the model. Earth tides are measurable but have amplitudes less than 0.05 cm freshwater and have ratios consistent with the theoretical ratios from the @Hartmann1995 catalog (Figure \ref{fig:paper-field-distributed-lag-decomposition}). Even though these amplitudes are near the instrument precision the relative amplitudes of tidal constituents match theory. This suggests that the majority of the barometric pressure component was effectively removed (i.e. the removal of the barometric pressure component allowed the Earth tide component to be quantified). If existing barometric signal was present the relative magnitudes of the Earth tide components would likely differ from theory particularly at the S~2~ and K~1~ frequencies. The diurnal (nominally one cycle per day) differences from the theoretical tides may result from local variability of tidal signals, ocean loading, the presence of additional diurnal forcings not accounted for in the model such as evapotranspiration, or the incomplete removal of the barometric signal due to non-linearities of the response.
+
+
+```{r paper-field-distributed-lag-decomposition, out.width = '100%', fig.cap = "Barometric pressure, background trend, and Earth tide components determined from the multiple linear regression model. The background trend, which is approximated with natural splines, could likely have been fit with a linear trend in this example. For the frequency domain representation we focus on the diurnal and semi-diurnal frequencies (one and two cycles per day). In the frequency domain Earth tide component facet the purple dashes are the theoretical equilibrium tidal amplitudes and the grey bars were determined from harmonic wave group analysis in the regression model. The theoretical Earth tide amplitudes are scaled values from the Hartmann and Wenzel (1995) catalog. The Earth tide amplitudes show excellent agreement with the semi-diurnal tidal groups, but there is some additional noise that may be present at the diurnal frequencies possibly due to ocean loading, evapotranspiration, or other signals not considered in the model. Note the scale difference for the Earth tide and residuals."}
+
+knitr::include_graphics('img/figure_07.pdf')
+
+```
+
+
+### Spatially variable barometric responses
+
+Barometric responses from an unconfined well pair (RD-77 and RD-121) and a semi-confined well pair (RD-45B and C-03) are compared to examine spatial variability (Figures \ref{fig:paper-spatial-comparison} and \ref{fig:paper-field-distributed-lag-summary}). At this site it is expected that the timing of the lagged response is related to investigation scale: early time corresponds to local properties; and late time corresponds to larger scale properties (>100 m). The responses for the well pairs support this expectation as each well in the well pair has a unique early response, however, at late time they collapse to the same values suggesting the same controlling features or mechanisms.  Conceptually this is consistent with the early time response being related to well-bore storage, a response dependent on the local formation transmissivity (or well skin) and borehole geometry. At this site, the late time response will be governed by different components of the subsurface for the unconfined and semi-confined wells. Specifically, the unconfined wells are more sensitive to vadose zone properties (water saturation, pneumatic diffusivity) and the semi-confined wells will be more sensitive to confining layer properties (vertical diffusivity).
+
+The unconfined and semi-confined responses can be interpreted to better understand the continuity of subsurface properties (Figure \ref{fig:paper-spatial-comparison}). The water level elevation for the unconfined wells (RD-77 and RD-121) is roughly the same, however, the vadose zone is 13 meters thicker at RD-121 than RD-77. Assuming vertical air flow and the same pneumatic diffusivity, the thicker vadose zone would lead to a delayed response at RD-121 relative to RD-77. The two responses converge after ~12 hours (0.5 cycles per day) and are attenuated by a similar magnitude (Figure \ref{fig:paper-spatial-comparison}). The value of the response at 1.5 days for both wells is 0.68 suggesting a similar mechanism is governing the value. We expect that this late time value is primarily due to capillary fringe attenuation highlighted by @Evans1991a, which could be considered similar between the monitoring wells. The semi-confined response is indistinguishable after time lags of 1 hour (~7 cycles per day). This suggests that the semi-confining layer has continuity and similar properties in the vicinity of the monitoring wells. Cumulative responses for each well are based on independent water level data and the close similarity at late time provides additional confidence in the results. 
+
+
+```{r paper-spatial-comparison,  out.width = '100%', fig.align="center", fig.cap = "Comparison of well pairs (C-03 and RD-45B, RD-77 and RD-121). At early times each well has a unique response, but at late times the responses are indistinguishable for the well pairs."}
+
+knitr::include_graphics('img/figure_08.pdf')
+
+```
+
+Figure \ref{fig:paper-field-distributed-lag-summary} displays the responses from the five water pressure data sets. After barometric pressure, Earth tide and background trend components are removed from the water pressure data, small seismic events are clearly visible in the residuals from the model fit (RD-45B in particular). The general lack of structure in the residuals, which are near instrument precision, further supports the quality of the regression deconvolution method with distributed lags and harmonic Earth tide constituents.
+
+```{r paper-field-distributed-lag-summary, out.width = '100%', fig.cap = "Summary of distributed lag model fits, Earth tide components and the residuals from the model fit. Given the proximity to the barometric pressure monitor, RD-130 provides the signal to noise ratio for the early time response. For RD-130, RD-77, and RD-121 which are considered unconfined, the Earth tide response is close to instrument precision and therefore increased uncertainty is associated with the values.  C-03 and RD-45B are semi-confined and have Earth tide ratios between components that are consistent with theory providing increased confidence in the characterization.  In general, the residuals are close to instrument precision with the largest residuals being associated with seismicity, which was not included in the regression model."}
+
+knitr::include_graphics('img/figure_09.pdf')
+
+```
+
+
+
+### Parameter estimation
+
+Following the determination of a response function, an interpretive model can be fit to estimate subsurface properties. The combined @Weeks1979 and @cooper1967response model was applied to the time domain response function for RD-130. The model fit for RD-130 is presented in Figure \ref{fig:paper-field-parameter-distributed-lag}. The first 30 seconds of response were excluded as it is characterized by a low signal to noise ratio. While the fit is far from perfect using this model applied to a fractured, folded and faulted system, the result suggests that given high frequency data it is possible to extend the range of transmissivity estimates from barometric/loading responses to greater than ~$1 \times 10^{-4}$ m^2^/s as was noted as a practical limitation in @Spane2002.  Without the high frequency barometric data set it would not have been possible to estimate the transmissivity from the water level response as the system responds too rapidly relative to the observation frequency. Unfortunately, there is no independent transmissivity measurement for RD-130 so the validity of this estimate remains uncertain. The result of $5 \times 10^{-4}$ m^2^/s lies in the upper range of transmissivities presented in @Allegre2016 for the site. The value of air diffusivity of 0.13 m^2^/s is in the range presented by @Spane2002. The relatively simple model is unable to perfectly represent the empirically derived response and demonstrates the need for further work to characterize the complexity imparted by these fractured and faulted systems. This complexity may be the result of multiple pathways of pressure migration through the vadose zone (fractures vs. faults vs. matrix) and spatial variability of hydraulic conductivity and storativity.  
+
+
+```{r paper-field-parameter-distributed-lag,  out.width = '100%', fig.align="center", fig.cap = "Response function determined with the distributed lag model and the combined well-bore storage and vadose air flow model fit. Parameters were fit using non-linear least squares with the Gauss-Newton algorithm. Some of the differences may be related to heterogeneity in the vadose zone resulting from faults and fractures."}
+
+knitr::include_graphics('img/figure_10.pdf')
+
+```
+\clearpage
+
+
+
+# Summary and Conclusions
+
+This paper presents an improved method of determining the water level response following a series of barometric pressure changes in the presence of Earth tides and background trends at high frequency (i.e. 1 second data) now technologically practical. The distributed lag method scales to data sets with millions of observations and long maximum lag times (multiple days). Given the appropriate monitoring strategy, water and barometric pressures coherence values of ~0.8 at one thousand cycles per day were obtained, an extension of two orders of magnitude from currently presented examples. This effectively allows for the quantitation of formation responses that occur rapidly and has a direct influence on the increasing range of hydraulic diffusivities and therefore, higher transmissivities can be estimated. Multiple components of the hydrogeologic system are characterized from a single barometric/loading response function as the barometric pressure changes result in stress changes that travel through different portions of the subsurface and at different rates.  Site specific conditions determine response times and at this site the early time response is governed by local well conditions and the late time is related to larger scale characteristics such as vadose zone conditions and confining layer properties. The single valued barometric efficiency was shown to be ill-suited to evaluating these types of lagged responses.
+
+
+The typical frequency for ambient monitoring of water levels in hydrogeologic and geotechnical investigations is a few minutes to hours, and the choice is based on historical practice, instrument specifications, signal to noise ratio, power consumption, data storage and processing capabilities. In practice, the monitoring frequency is rarely selected based on the formation and well properties. @Hendry2018 suggest that intervals less than thirty minutes may be useful and shorter measurement intervals are better. Fortunately, the ability to record water pressure changes at high frequency and precision is possible with little additional effort. Combined with increasing computational capabilities and software advancements, data sets with millions of observations can be analyzed on a mid-range laptop. This paper focused on barometric responses; however, the distributed lag method is applicable to other signals such as variable rate pumping, surface water levels, and precipitation. All methods mentioned in this paper have been implemented in the actively developed open source *R* software package *hydrorecipes* creating a consistent framework for the analysis of groundwater level/pressure responses to barometric pressure (and other) signals.
+
+
+
+# Acknowledgements
+
+Funding was provided by The Boeing Company and the Natural Science and Engineering Research Council of Canada Industrial Research Chair grant to Dr. B.L. Parker (IRC 363783-11 and IRC 363783-18). We would like to thank Ryan Kroeker of the University of Guelph for help in the field. Dr. Jonathan Munn, Dr. Carlos Maldaner, Dr. Todd Rasmussen, Dr. Emmanuelle Arnaud, Dr. John Cherry, and Ann Garniss for valuable comments on the draft manuscript and thesis. The idea for using distributed lag models was inspired by the R dlnm package written by Dr. Antonio Gasparrini.
+
+\clearpage
+
+
+
+
+
+
+<!-- ## Limitations and future work -->
+
+<!-- The current implementation requires regularly spaced time series (i.e. evenly spaced data) for barometric pressure, but gaps may be present. Data gaps are enhanced due to the lagging process as missing values get propagated forward in time and therefore it is a good practice to ensure that the barometric pressure data extends before and during the entire analysis period. Water pressure/levels do not need to be regularly spaced. -->
+
+<!-- The quality of the barometric/loading response functions is dependent on the equipment used, where the equipment is placed, and knowledge of system inputs. When using high frequency monitoring data, barometric pressure monitoring should be as close to the monitoring well as possible to minimize noise introduced by the spatial variability of barometric pressure. Where and how barometric pressure is monitored on site can influence the results of calculated response functions. In uncased rock boreholes having large portions open to the vadose zone (i.e. deep water levels), air flow between the formation and borehole may lead to disequilibrium between the air pressure at ground surface and near the water level. This has implications as to where air pressure is measured, and potentially it may be useful to measure both near the water level and near ground surface to improve barometric/loading response function calculations. At this site, air pressure was measured \~5m below top of casing. This minimizes temperature fluctuations, decreases exposure to the sun and wind, and generally provides a stable environment for data collection. Another potential source of error results from barometric pressure differences between monitoring locations at the same time. Barometric pressure is commonly measured at one location on site; however, if the site is large the barometric pressure may vary from location to location at the same time. Water level monitoring locations that are spatially distant from the barometric pressure sensor may cause a lag, lead, or variable barometric/loading response and thus site conditions should be assessed to select the most representative location(s) for monitoring barometric pressure. -->
+
+<!-- Also, of particular interest are the equipment resolution/precision, temperature/density compensation, and the logger time drift. Higher instrument precision allows for smaller signals to be determined whereas logger time drift can lead to the blending of the barometric/loading response over multiple times. Noisy data sets can also present difficulties, as outliers can skew results and may require multiple iterations to achieve the most representative response function. In many cases these errors are easily diagnosed due to unreasonable fluctuations, values outside the expected response function range (\<\< 0 or \>\> 1), inconsistent results for parameters (i.e. Earth tide amplitudes) or structure in the residuals from fit. The current examples utilize a least squares solution; however, other models or regularization methods that may perform better on noisy data sets could be selected. A current assumption of this method is that the barometric/loading response function is constant for the analysis period. For this time period (`r format(start, '%Y-%m-%d')` and `r format(end, '%Y-%m-%d')`) this assumption is likely justified; however, for time periods with external stimuli such as earthquakes or precipitation, this assumption may not be justified and therefore the method may need to be applied over smaller time periods. Temporally variable response functions will be explored in a future publication [@kennel2020b]. -->
+
+
+
+<!-- Clock drift can cause an artificial lag or leading of measurements and potentially lead to averaging responses over multiple lags if the transducers are drifting at different rates. These clock drift artifacts will have a larger effect at early lag times and a diminished effect at late lag times. -->
+
+
+
+<!-- Some wells may have a long well-bore storage response due low formation transmissivity or large well diameter and some may have a rapid vadose response due to a shallow water table. The low signal to noise region is likely influenced by the well construction, transducer properties, location of barometric pressure monitoring, and possibly how rapidly the pressure is transmitted to the pore fluids. RD-130 is an open hole with the water level below the casing (the vadose zone is exposed). This allows for the barometric response to be quickly transferred to the vadose zone above the water level in the close proximity of the well-bore, thus attenuating the initial response. The well-bore storage region, results from flow into and out of the borehole caused by the barometric pressure changes i.e. a slug-type response. The vadose response occurs at later times (lower frequencies) as the barometric pressure change is propagated through the vadose zone from ground surface to the water table. This response is often attenuated by the water content in the vadose zone and capillary fringe as noted in @Evans1991. The well-bore storage response results from conditions near the well-bore and local formation properties and the late time response depends on larger scale features that are investigated in the well-pair comparisons. When compared to the static method we can clearly see how Clark's method and the Acworth method are deficient for lagged/frequency dependent responses. Clark's method is dependent on $\Delta t$, and the Acworth method typically focuses on specific frequencies that are related to Earth tides (diurnal and semi-diurnal). These are not a specific deficiencies of the methods but the application to lagged/frequency dependent responses that are outside of their intended purpose. -->
+
+
+
+
+
+
+<!-- In this paper, similarities and differences are highlighted by plotting both frequency and time domain responses side by side. The *waterlevel* package attempts to decrease the barrier between methods by allowing for multiple analysis methods to be used with a single data set. -->
+
+<!-- This set of imbalances highlights an important aspect of the water level response to barometric pressure, the barometric signal travels through multiple volumes of the subsurface and the travel time varies based on the subsurface properties.  -->
+
+
+<!-- As @MatsumotoHydrologicalresponseearthquakes2003 and @Butler2011 demonstrate, the barometric/loading response may change over time for a variety of reasons, and thus care should be taken when using these methods to estimate aquifer properties particularly in non-ideal conditions.  -->
+

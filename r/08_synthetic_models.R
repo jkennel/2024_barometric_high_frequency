@@ -18,18 +18,18 @@ calculate_results <- function(x,
 
   # static efficiency
   # acworth
-  be_ac <- frecipes:::be_transfer(collapse::qM(dat[, list(wl_reg, baro)]),
+  be_ac <- hydrorecipes:::be_transfer(collapse::qM(dat[, list(wl_reg, baro)]),
                                   spans = 5, TRUE, TRUE, 0.1,
                                   2.0, 86400)[1]
 
   # least squares
-  be_ls <- frecipes:::be_least_squares_cpp(dep = dat[["wl_reg"]],
+  be_ls <- hydrorecipes:::be_least_squares_cpp(dep = dat[["wl_reg"]],
                                            ind = dat[["baro"]],
                                            inverse = FALSE)
 
   # clark's
   be_cl <- sapply(n_vals, function(y) {
-    frecipes:::be_clark_cpp(dep = dat[["wl_reg"]],
+    hydrorecipes:::be_clark_cpp(dep = dat[["wl_reg"]],
                             ind = dat[["baro"]],
                             lag_space = y,
                             inverse = FALSE)
@@ -50,7 +50,7 @@ calculate_results <- function(x,
 
 
   # frequency response function
-  frf <- frecipes:::transfer_pgram(collapse::qM(dat[, list(wl_reg, baro)]),
+  frf <- hydrorecipes:::transfer_pgram(collapse::qM(dat[, list(wl_reg, baro)]),
                                    spans = 5,
                                    detrend = TRUE,
                                    demean = TRUE,
@@ -58,7 +58,7 @@ calculate_results <- function(x,
 
 
 
-  brf_frf <- data.table(value = frecipes:::brf_from_frf(frf[, 1]))
+  brf_frf <- data.table(value = hydrorecipes:::brf_from_frf(frf[, 1]))
 
   # x is the time lag
   brf_frf[, x := 0:(nrow(brf_frf) - 1)]
