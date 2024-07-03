@@ -1,4 +1,6 @@
-
+# Read in *.rsk files
+# Subset date range
+# Convert to equivalent freshwater in cm
 rsk_baro <- function(files, dbar_to_m = 1.0199773339984, m_to_cm = 100.0) {
 
   start <- as.POSIXct('2019-03-09 01:54:03', tz = 'UTC')

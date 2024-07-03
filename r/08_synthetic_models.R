@@ -35,12 +35,13 @@ calculate_results <- function(x,
                             inverse = FALSE)
   })
 
+  formula <- as.formula("wl_reg~.")
 
   # distributed lag
   rec <- recipe(wl_reg~., dat) |>
     step_distributed_lag(baro, knots = log_lags_arma(20, max_syn_lag)) |>
-    step_drop_columns(baro) |>
     step_intercept() |>
+    step_drop_columns(baro) |>
     step_drop_columns(datetime) |>
     step_ols(formula) |>
     prep() |>

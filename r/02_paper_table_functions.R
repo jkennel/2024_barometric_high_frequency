@@ -1,3 +1,5 @@
+# Code for table generation
+
 tbl_well_details <- function(well_details) {
 
   well_details <- copy(well_details)

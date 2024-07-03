@@ -67,8 +67,6 @@ residual_pgram <- function(wl, et, reg_pred) {
 
   form <- as.formula("wl~.")
 
-  print(names(reg_pred))
-  print(names(wl))
   pred <- wl[, list(rd_130,
                     baro,
                     volume_strain,

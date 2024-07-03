@@ -16,11 +16,6 @@ library(bench)        # for timings
 library(psd)          # for frequency analysis
 library(sf)           # for spatial operations
 
-# figures and tables ------------------------------------------------------
-
-# source('r/00_paper_table_functions.R')
-# source('r/00_paper_plotting_functions.R')
-
 # variables ---------------------------------------------------------------
 
 dbar_to_kpa <- 10

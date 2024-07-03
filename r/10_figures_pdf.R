@@ -128,10 +128,7 @@ plot_figure_03 <- function(crds_sub) {
   CairoPNG("img/figure_03.png", width = 5156 / 2, height = 3544 / 2)
 
   bg_col <- "#FFFFFF"
-  # site   <- st_read("data/site.kml", quiet = TRUE)
-  # site <- st_union(st_cast(site, "MULTIPOLYGON"))
 
-  # imag   <- brick("data/aerial_mosaic.tif")
   imag_crop <- raster("data/635701909.tif")
   imag_crop <- raster::projectRaster(imag_crop, crs = "EPSG:4326", method = "bilinear")
 
@@ -354,14 +351,6 @@ plot_figure_04 <- function(wl, et, tf_pgram, default_height_half, default_width)
 
 plot_figure_05 <- function(ba_compare_time, ba_compare_frequency, wl_130) {
 
-  # co <- read_fst("data/resp_baro_tf.fst", as.data.table = TRUE)
-  # wa <- readRDS("data/wl_baro_et_tf_rd130.rds")
-  #
-  # wa <- data.table(freq = wa$freq * 86400, coh = wa$coh[,1])
-  # wa[, variable := "RD-130 water"]
-
-
-  # resp <- read_fst("data/resp_baro_dl.fst", as.data.table = TRUE)
   wl_130 <- data.table(freq = wl_130$freq*86400,
                        coh = wl_130$coh[,1],
                        variable = "RD-130 water")
@@ -459,9 +448,6 @@ plot_figure_06 <- function(resp_dl_subs, response_dl, tf_rd_130_subs, tf_rd_130,
                                mid = unit(0.1, "cm"),
                                long = unit(0.15,"cm"))
   p <- p + geom_line(linewidth = 1)
-  # p <- p + geom_segment(data = static, aes(x = 90000, xend = 100000, y = value, yend = value), color = "#303030")
-  # # p <- p + geom_segment(data = static, aes(x = 1000, xend = 100000, y = value, yend = value), linetype = "dashed", color = "#303030")
-  # p <- p + geom_text(data = static, aes(x = 88000, y = value, label = name), vjust = 0.5, hjust = 1, color = "#303030", size = 2.5)
   p <- p + geom_segment(data = static, aes(x = 1, xend = 100, y = value, yend = value), linetype = "dashed", color = "#303030")
   p <- p + geom_segment(data = static, aes(x = 1000, xend = 100000, y = value, yend = value), linetype = "dashed", color = "#303030")
   p <- p + geom_text(data = static, aes(x = 300, y = value + c(0, 0.01, 0, -0.01), label = name),
@@ -782,7 +768,6 @@ plot_figure_08 <- function(response_dl,
 
   c_3 <- data.table(freq = tf_c_3$freq * 86400, tf = Mod(tf_c_3$transfer[, 1]))[freq < 2000][, variable := "C-03"]
   rd_45b <- data.table(freq = tf_rd_45b$freq * 86400, tf = Mod(tf_rd_45b$transfer[, 1]))[freq < 2000][, variable := "RD-45B"]
-  # rd_130 <- data.table(freq = tf_rd_130$freq * 86400, tf = Mod(tf_rd_130$transfer[, 1]))[freq < 2000][, variable := "RD-130"]
   rd_121 <- data.table(freq = tf_rd_121$freq * 86400, tf = Mod(tf_rd_121$transfer[, 1]))[freq < 2000][, variable := "RD-121"]
   rd_77 <- data.table(freq = tf_rd_77$freq * 86400, tf = Mod(tf_rd_77$transfer[, 1]))[freq < 2000][, variable := "RD-77"]
 
