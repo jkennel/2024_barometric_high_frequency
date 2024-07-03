@@ -242,8 +242,13 @@ list(
 
 
 # generate report ---------------------------------------------------------
+  tar_target(convert_pdf,
+             convert_pdfs("img/")
+  ),
+  tar_target(convert_pdf_table,
+             convert_pdfs_table("img/dist_lag/")
+  ),
   tar_render(report,
              "brf_methods_joh_kennel_2024.Rmd")
-
 
 )

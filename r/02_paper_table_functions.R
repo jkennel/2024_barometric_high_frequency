@@ -92,6 +92,8 @@ tbl_syn_method_comparison <- function(results_method) {
 
   res[, image_brf := glue::glue("\\includegraphics[height=14px]{{{image_brf}}}")]
 
+  res[, image_box := gsub("pdf", "png", image_box)]
+  res[, image_brf := gsub("pdf", "png", image_brf)]
 
   addtorow <- list()
   addtorow$pos <- list(0,0, 3,3, 6,6)

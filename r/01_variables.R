@@ -3,6 +3,7 @@ library(data.table)   # for general table manipulations
 library(prettymapr)
 library(earthtide)    # for synthetic Earth tides
 library(patchwork)    # for plot organization
+library(pdftools)     # convert pdf to png
 library(viridis)      # colors for plotting
 library(ggplot2)      # for plotting
 library(magick)       # for figure output
@@ -14,8 +15,8 @@ library(scales)       # for plotting scales
 library(Cairo)        # for figure output
 library(bench)        # for timings
 library(psd)          # for frequency analysis
+library(png)          # for output
 library(sf)           # for spatial operations
-
 # variables ---------------------------------------------------------------
 
 dbar_to_kpa <- 10
