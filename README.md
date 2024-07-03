@@ -4,8 +4,7 @@
 Replication code for: Characterizing water level responses to barometric pressure fluctuations from seconds to days
 
 To run the code: 
-1) download the data
-2) create a data folder
-3) create an img folder
-4) restore renv lockfile renv::restore()
-5) run tar_make()
+1) download this archive
+2) download the data (from https://borealisdata.ca/dataset.xhtml?persistentId=doi:10.5683/SP3/AKPAEN) and put in data folder
+3) restore renv lockfile: renv::restore() this should install all the necessary packages
+4) run: tar_make() This may take quite some time.
