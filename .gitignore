@@ -2,3 +2,11 @@
 .Rhistory
 .RData
 .Ruserdata
+img/*.png
+img/*.pdf
+img/png/*.png
+img/dist_lag/*.pdf
+img/dist_lag/*.png
+data/*.rsk
+data/*.csv
+data/*.tif
